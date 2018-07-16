@@ -429,6 +429,7 @@ const RepeatIntent = {
     const sessionAttributes = handlerInput.attributesManager.getSessionAttributes();
     return handlerInput.responseBuilder.speak(sessionAttributes.speechOutput)
       .reprompt(sessionAttributes.repromptText)
+      .withSimpleCard('Fallout Four Trivia', sessionAttributes.repromptText)
       .getResponse();
   },
 };

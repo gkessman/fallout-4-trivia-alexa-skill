@@ -59,7 +59,13 @@
               },
               {
                   "name": "AMAZON.RepeatIntent",
-                  "samples": []
+                  "samples": [
+                    "repeat the question",
+                    "repeat",
+                    "what was the question",
+                    "what were the answers",
+                    "repeat the answers"
+                  ]
               },
               {
                   "name": "AMAZON.YesIntent",
