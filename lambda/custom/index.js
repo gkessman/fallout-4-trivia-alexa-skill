@@ -93,6 +93,7 @@ function handleUserGuess(userGaveUp, handlerInput) {
   let gameOverSentence = '';
   let gameOverAnalysisSentence = '';
   let speechOutput = '';
+  let answerEmote = '';
 
   const sessionAttributes = attributesManager.getSessionAttributes();
   const gameQuestions = sessionAttributes.questions;
@@ -107,9 +108,16 @@ function handleUserGuess(userGaveUp, handlerInput) {
   if (answerSlotValid
     && parseInt(intent.slots.Answer.value, 10) === sessionAttributes.correctAnswerIndex) {
     currentScore += 1;
+    answerEmote = '<audio src=\'https://s3.amazonaws.com/fallout-four-trivia-alexa-skill/ui_exp_up.mp3\'/>';
     answerResultSentence = requestAttributes.t('ANSWER_CORRECT_MESSAGE');
   } else {
     if (!userGaveUp) {
+      // Choose emote for wrong answer. Updated versions will have more choices and maybe put in an array or something.
+      if (Math.random() >= 0.5) {
+        answerEmote = '<audio src=\'https://s3.amazonaws.com/fallout-four-trivia-alexa-skill/idiot_savant_laugh.mp3\'/>';
+      } else {
+        answerEmote = '<audio src=\'https://s3.amazonaws.com/fallout-four-trivia-alexa-skill/supermutant_radroach_formatted.mp3\'/>';
+      }
       answerResultSentence = requestAttributes.t('ANSWER_WRONG_MESSAGE');
     }
 
@@ -152,6 +160,7 @@ function handleUserGuess(userGaveUp, handlerInput) {
     speechOutput = "Thanks a lot for playing. I hope to see you again! ";
 
     let gameOverReply = ssmlBuilder.startParagraph()
+      .speak(answerEmote)
       .speak(answerResultSentence)
       .speak(correctAnswerSentence)
       .speak(gameOverSentence)
@@ -162,7 +171,7 @@ function handleUserGuess(userGaveUp, handlerInput) {
 
     return responseBuilder
       .speak(gameOverReply)
-      .getResponse();
+      .getResponse()
   }
 
   currentQuestionIndex += 1;
@@ -181,9 +190,8 @@ function handleUserGuess(userGaveUp, handlerInput) {
     spokenQuestion
   );
 
-  let answerListSentence = '';
   for (let i = 0; i < ANSWER_COUNT; i += 1) {
-    answerResultSentence += `${i + 1}. ${roundAnswers[i]}. `;
+    repromptText += `${i + 1}. ${roundAnswers[i]}. `;
   }
 
   let currentScoreSentence = requestAttributes.t('SCORE_IS_MESSAGE', currentScore.toString());
@@ -201,11 +209,11 @@ function handleUserGuess(userGaveUp, handlerInput) {
   });
 
   let finalReply = ssmlBuilder.startParagraph()
+      .speak(answerEmote)
       .speak(answerResultSentence)
       .speak(correctAnswerSentence)
       .speak(currentScoreSentence)
       .speak(repromptText)
-      .speak(answerListSentence)
       .endParagraph()
       .build()
 
@@ -268,6 +276,7 @@ function startGame(newGame, handlerInput) {
   return handlerInput.responseBuilder
     .speak(speechOutput)
     .reprompt(repromptText)
+    .withSimpleCard(requestAttributes.t('GAME_NAME'), repromptText)
     .getResponse();
 }
 
@@ -300,8 +309,8 @@ const languageString = {
       START_UNHANDLED: 'Say start to start a new game.',
       NEW_GAME_MESSAGE: '<audio src=\'https://s3.amazonaws.com/fallout-four-trivia-alexa-skill/mysterious_stranger_formatted.mp3\'/> Welcome to %s vault dweller! ',
       WELCOME_MESSAGE: 'I will ask you %s questions to test your knowledge of the commonwealth, let\'s see how much you know! Just say the number of the answer. Let\'s get started. ',
-      ANSWER_CORRECT_MESSAGE: '<audio src=\'https://s3.amazonaws.com/fallout-four-trivia-alexa-skill/ui_exp_up.mp3\'/> Correct! ',
-      ANSWER_WRONG_MESSAGE: '<audio src=\'https://s3.amazonaws.com/fallout-four-trivia-alexa-skill/idiot_savant_laugh.mp3\'/> Incorrect. ',
+      ANSWER_CORRECT_MESSAGE: 'Correct! ',
+      ANSWER_WRONG_MESSAGE: 'Incorrect. ',
       CORRECT_ANSWER_MESSAGE: 'The correct answer is %s: %s. ',
       TELL_QUESTION_MESSAGE: 'Question %s. %s ',
       GAME_OVER_MESSAGE: 'You got %s out of %s questions correct. ',
