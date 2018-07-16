@@ -3,14 +3,14 @@
     "publishingInformation": {
       "locales": {
         "en-US": {
-          "summary": "Sample Short Description",
+          "summary": "A trivia game to test your Fallout 4 video game knowledge",
           "examplePhrases": [
             "Alexa open fallout four trivia",
-            "Alexa tell fallout four trivia to start a game",
+            "Alexa ask fallout four trivia to start a game",
             "Alexa tell fallout four trivia I want to play"
           ],
           "name": "fallout four trivia",
-          "description": "Sample Full Description"
+          "description": "This is an unofficial Fallout 4 trivia game, meant to test your knowledge of all different aspects of the game. Answers are multiple choice, say the number of the answer to guess. All sounds and icons are owned by and belong to Bethesda Softworks. I claim no credit for any intellectual property or assets used in this skill"
         }
       },
       "isAvailableWorldwide": true,

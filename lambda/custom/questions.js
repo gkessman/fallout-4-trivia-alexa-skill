@@ -8,7 +8,7 @@ module.exports = {
   
   QUESTIONS_EN_US: [
     {
-      'Which version of the drug Mentats gives players a plus 5 Intelligence increase?': [
+      'Which version of the drug Mentats gives players plus 5 Intelligence increase?': [
         'Berry Mentats',
         'Grape Mentats',
         'Orange Mentats',
@@ -247,5 +247,13 @@ module.exports = {
         'Deathclaw Matriarch', 
       ],
     },
+    {
+      'What model of robot is Codsworth, your personal butler?': [
+        'Mister Handy',
+        'Assaultron',
+        'Protectron',
+        'Sentry Bot'
+      ]
+    }
   ]
 };

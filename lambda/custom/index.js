@@ -2,15 +2,13 @@
 /* eslint-disable  no-console */
 
 const Alexa = require('ask-sdk-core');
+const AlexaSsmlBuilder = require('alexa-ssml-builder');
 const questions = require('./questions');
 const i18n = require('i18next');
 const sprintf = require('i18next-sprintf-postprocessor');
 
 const ANSWER_COUNT = 4;
 const GAME_LENGTH = 5;
-
-// Sounds
-const gunSpinner = "<audio src=’https://s3.amazonaws.com/fallout-four-trivia-alexa-skill/44_pistol_spin.mp3'/>"
 
 function populateGameQuestions(translatedQuestions) {
   const gameQuestions = [];
@@ -84,13 +82,17 @@ function isAnswerSlotValid(intent) {
 }
 
 function handleUserGuess(userGaveUp, handlerInput) {
+  let ssmlBuilder = new AlexaSsmlBuilder();
   const { requestEnvelope, attributesManager, responseBuilder } = handlerInput;
   const { intent } = requestEnvelope.request;
 
   const answerSlotValid = isAnswerSlotValid(intent);
 
+  let answerResultSentence = '';
+  let correctAnswerSentence = '';
+  let gameOverSentence = '';
+  let gameOverAnalysisSentence = '';
   let speechOutput = '';
-  let speechOutputAnalysis = '';
 
   const sessionAttributes = attributesManager.getSessionAttributes();
   const gameQuestions = sessionAttributes.questions;
@@ -105,13 +107,13 @@ function handleUserGuess(userGaveUp, handlerInput) {
   if (answerSlotValid
     && parseInt(intent.slots.Answer.value, 10) === sessionAttributes.correctAnswerIndex) {
     currentScore += 1;
-    speechOutputAnalysis = requestAttributes.t('ANSWER_CORRECT_MESSAGE');
+    answerResultSentence = requestAttributes.t('ANSWER_CORRECT_MESSAGE');
   } else {
     if (!userGaveUp) {
-      speechOutputAnalysis = requestAttributes.t('ANSWER_WRONG_MESSAGE');
+      answerResultSentence = requestAttributes.t('ANSWER_WRONG_MESSAGE');
     }
 
-    speechOutputAnalysis += requestAttributes.t(
+    correctAnswerSentence = requestAttributes.t(
       'CORRECT_ANSWER_MESSAGE',
       correctAnswerIndex,
       correctAnswerText
@@ -120,17 +122,49 @@ function handleUserGuess(userGaveUp, handlerInput) {
 
   // Check if we can exit the game session after GAME_LENGTH questions (zero-indexed)
   if (sessionAttributes.currentQuestionIndex === GAME_LENGTH - 1) {
-    speechOutput = userGaveUp ? '' : requestAttributes.t('ANSWER_IS_MESSAGE');
-    speechOutput += speechOutputAnalysis + requestAttributes.t(
+    gameOverSentence = requestAttributes.t(
       'GAME_OVER_MESSAGE',
       currentScore.toString(),
       GAME_LENGTH.toString()
     );
 
-    return responseBuilder
+    const total = currentScore / GAME_LENGTH;
+
+    switch(true) {
+      case total <= .40: {
+        gameOverAnalysisSentence = "Perhaps you should play more fallout 4, I promise I won't judge you! ";
+        break;
+      }
+      case total <= .60: {
+        gameOverAnalysisSentence = "You'd make a pretty average Brotherhood of Steel recruit. Keep your head up! ";
+        break;
+      }
+      case total <= .80: {
+        gameOverAnalysisSentence = "You've clearly spent quite a bit of time wandering the wasteland, I'm so proud of you! ";
+        break;
+      }
+      default: {
+        gameOverAnalysisSentence = "A perfect score! I'm beginning to think you're a synth. Can you prove me wrong? Either way, fantastic job! ";
+        break;
+      }
+    }
+
+    speechOutput = "Thanks a lot for playing. I hope to see you again! ";
+
+    let gameOverReply = ssmlBuilder.startParagraph()
+      .speak(answerResultSentence)
+      .speak(correctAnswerSentence)
+      .speak(gameOverSentence)
+      .speak(gameOverAnalysisSentence)
       .speak(speechOutput)
+      .endParagraph()
+      .build()
+
+    return responseBuilder
+      .speak(gameOverReply)
       .getResponse();
   }
+
   currentQuestionIndex += 1;
   correctAnswerIndex = Math.floor(Math.random() * (ANSWER_COUNT));
   const spokenQuestion = Object.keys(translatedQuestions[gameQuestions[currentQuestionIndex]])[0];
@@ -147,14 +181,12 @@ function handleUserGuess(userGaveUp, handlerInput) {
     spokenQuestion
   );
 
+  let answerListSentence = '';
   for (let i = 0; i < ANSWER_COUNT; i += 1) {
-    repromptText += `${i + 1}. ${roundAnswers[i]}. `;
+    answerResultSentence += `${i + 1}. ${roundAnswers[i]}. `;
   }
 
-  speechOutput += userGaveUp ? '' : requestAttributes.t('ANSWER_IS_MESSAGE');
-  speechOutput += speechOutputAnalysis
-    + requestAttributes.t('SCORE_IS_MESSAGE', currentScore.toString())
-    + repromptText;
+  let currentScoreSentence = requestAttributes.t('SCORE_IS_MESSAGE', currentScore.toString());
 
   const translatedQuestion = translatedQuestions[gameQuestions[currentQuestionIndex]];
 
@@ -168,18 +200,31 @@ function handleUserGuess(userGaveUp, handlerInput) {
     correctAnswerText: translatedQuestion[Object.keys(translatedQuestion)[0]][0]
   });
 
-  return responseBuilder.speak(speechOutput)
+  let finalReply = ssmlBuilder.startParagraph()
+      .speak(answerResultSentence)
+      .speak(correctAnswerSentence)
+      .speak(currentScoreSentence)
+      .speak(repromptText)
+      .speak(answerListSentence)
+      .endParagraph()
+      .build()
+
+  return responseBuilder
+    .speak(finalReply)
     .reprompt(repromptText)
     .withSimpleCard(requestAttributes.t('GAME_NAME'), repromptText)
     .getResponse();
 }
 
 function startGame(newGame, handlerInput) {
+  let ssmlBuilder = new AlexaSsmlBuilder();
+  let newGameSentence = '';
+  let welcomeSentence = '';
   const requestAttributes = handlerInput.attributesManager.getRequestAttributes();
-  let speechOutput = newGame
-    ? requestAttributes.t(gunSpinner, 'NEW_GAME_MESSAGE', requestAttributes.t('GAME_NAME'))
-      + requestAttributes.t('WELCOME_MESSAGE', GAME_LENGTH.toString())
-    : '';
+  if (newGame) { 
+    newGameSentence = requestAttributes.t('NEW_GAME_MESSAGE', requestAttributes.t('GAME_NAME'))
+    welcomeSentence = requestAttributes.t('WELCOME_MESSAGE', GAME_LENGTH.toString())
+  }
   const translatedQuestions = requestAttributes.t('QUESTIONS');
   const gameQuestions = populateGameQuestions(translatedQuestions);
   const correctAnswerIndex = Math.floor(Math.random() * (ANSWER_COUNT));
@@ -197,7 +242,6 @@ function startGame(newGame, handlerInput) {
     repromptText += `${i + 1}. ${roundAnswers[i]}. `;
   }
 
-  speechOutput += repromptText;
   const sessionAttributes = {};
 
   const translatedQuestion = translatedQuestions[gameQuestions[currentQuestionIndex]];
@@ -213,11 +257,17 @@ function startGame(newGame, handlerInput) {
   });
 
   handlerInput.attributesManager.setSessionAttributes(sessionAttributes);
+  
+  let speechOutput = ssmlBuilder.startParagraph()
+      .speak(newGameSentence)
+      .speak(welcomeSentence)
+      .speak(repromptText)
+      .endParagraph()
+      .build()
 
   return handlerInput.responseBuilder
     .speak(speechOutput)
     .reprompt(repromptText)
-    .withSimpleCard(requestAttributes.t('GAME_NAME'), repromptText)
     .getResponse();
 }
 
@@ -238,7 +288,7 @@ const languageString = {
     translation: {
       QUESTIONS: questions.QUESTIONS_EN_US,
       GAME_NAME: 'Fallout Four Trivia',
-      HELP_MESSAGE: 'I will ask you %s multiple choice questions. Respond with the number of the answer. For example, say one, two, three, or four. To start a new game at any time, say, start game. ',
+      HELP_MESSAGE: 'You will be asked %s multiple choice questions to test your knowledge of the commonwealth. Respond with the number of the answer. For example, say one, two, three, or four. To start a new game at any time, say, start game. ',
       REPEAT_QUESTION_MESSAGE: 'To repeat the last question, say, repeat. ',
       ASK_MESSAGE_START: 'Would you like to start playing?',
       HELP_REPROMPT: 'To give an answer to a question, respond with the number of the answer. ',
@@ -248,14 +298,13 @@ const languageString = {
       TRIVIA_UNHANDLED: 'Try saying a number between 1 and %s',
       HELP_UNHANDLED: 'Say yes to continue, or no to end the game.',
       START_UNHANDLED: 'Say start to start a new game.',
-      NEW_GAME_MESSAGE: 'Welcome to %s. vault dweller!',
-      WELCOME_MESSAGE: 'I will ask you %s questions, try to get as many right as you can. Just say the number of the answer. Let\'s begin. ',
-      ANSWER_CORRECT_MESSAGE: 'correct. ',
-      ANSWER_WRONG_MESSAGE: 'wrong. ',
+      NEW_GAME_MESSAGE: '<audio src=\'https://s3.amazonaws.com/fallout-four-trivia-alexa-skill/mysterious_stranger_formatted.mp3\'/> Welcome to %s vault dweller! ',
+      WELCOME_MESSAGE: 'I will ask you %s questions to test your knowledge of the commonwealth, let\'s see how much you know! Just say the number of the answer. Let\'s get started. ',
+      ANSWER_CORRECT_MESSAGE: '<audio src=\'https://s3.amazonaws.com/fallout-four-trivia-alexa-skill/ui_exp_up.mp3\'/> Correct! ',
+      ANSWER_WRONG_MESSAGE: '<audio src=\'https://s3.amazonaws.com/fallout-four-trivia-alexa-skill/idiot_savant_laugh.mp3\'/> Incorrect. ',
       CORRECT_ANSWER_MESSAGE: 'The correct answer is %s: %s. ',
-      ANSWER_IS_MESSAGE: 'That answer is ',
       TELL_QUESTION_MESSAGE: 'Question %s. %s ',
-      GAME_OVER_MESSAGE: 'You got %s out of %s questions correct. Thank you for playing!',
+      GAME_OVER_MESSAGE: 'You got %s out of %s questions correct. ',
       SCORE_IS_MESSAGE: 'Your score is %s. '
     },
   },
